@@ -1,0 +1,58 @@
+:root {
+  --paper: #fbfaf8;
+  --ink: #101011;
+  --ink-2: #46464c;
+  --ink-3: #74737a;
+  --rule: #e4e1da;
+  --surface: #fff;
+  --radius: 10px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+
+.wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+.top {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; margin-bottom: 1.75rem;
+}
+.brand { font-weight: 750; letter-spacing: -0.03em; font-size: 1.15rem; color: inherit; text-decoration: none; }
+h1 { font-size: 1.65rem; letter-spacing: -0.03em; margin: 0 0 0.4rem; }
+.muted { color: var(--ink-3); font-size: 0.92rem; margin: 0 0 1.5rem; }
+.seg { display: inline-flex; gap: 0.25rem; padding: 0.2rem; border: 1px solid #d3cfc6; border-radius: 999px; margin-bottom: 1.25rem; }
+.seg button {
+  font: inherit; font-size: 0.9rem; background: transparent; border: 0;
+  padding: 0.4rem 0.85rem; border-radius: 999px; cursor: pointer; color: var(--ink-2);
+}
+.seg button.is-on { background: var(--ink); color: var(--paper); }
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.7rem 0.7rem 0.7rem 0; border-bottom: 1px solid var(--rule); color: var(--ink-2); }
+th { color: var(--ink-3); font-weight: 600; }
+.card {
+  max-width: 420px; margin: 4rem auto; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 14px; padding: 1.75rem;
+}
+.field { display: grid; gap: 0.4rem; margin-bottom: 1rem; }
+.field label { font-size: 0.9rem; font-weight: 500; }
+.field input {
+  font: inherit; padding: 0.7rem 0.85rem; border: 1px solid #d3cfc6;
+  border-radius: var(--radius); background: var(--surface);
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 8px; padding: 0.7rem 1rem; font: inherit; font-weight: 650;
+  background: var(--ink); color: var(--paper); cursor: pointer; width: 100%;
+}
+.btn:disabled { opacity: 0.55; }
+.danger {
+  font: inherit; font-size: 0.82rem; font-weight: 650;
+  background: none; border: 0; color: #8a3a32; cursor: pointer; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.danger:disabled { opacity: 0.45; cursor: not-allowed; }
+.error { color: #8a3a32; font-size: 0.9rem; margin: 0 0 1rem; }
+.link { background: none; border: 0; font: inherit; color: var(--ink-3); cursor: pointer; text-decoration: underline; }
