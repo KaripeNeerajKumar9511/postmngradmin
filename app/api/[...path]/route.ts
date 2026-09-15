@@ -46,7 +46,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     return NextResponse.json(
       {
         success: false,
-        message: 'Could not reach the backend. Is Django running on port 8000?',
+        message: `Could not reach the backend at ${BACKEND_URL}. Set BACKEND_URL in admin/.env.`,
         data: null,
         errors: [],
       },

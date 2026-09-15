@@ -18,10 +18,20 @@ export function setToken(token: string | null) {
   else window.localStorage.removeItem(TOKEN_KEY);
 }
 
+function backendOrigin(): string {
+  return (process.env.BACKEND_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
+}
+
 function withTrailingSlash(url: string): string {
   const [pathname, query] = url.split('?');
   if (!pathname || pathname.endsWith('/')) return url;
   return query ? `${pathname}/?${query}` : `${pathname}/`;
+}
+
+function apiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return withTrailingSlash(path);
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return withTrailingSlash(`${backendOrigin()}${suffix}`);
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -29,13 +39,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   headers.set('Content-Type', 'application/json');
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  const res = await fetch(withTrailingSlash(path), { ...init, headers, cache: 'no-store' });
+  const res = await fetch(apiUrl(path), { ...init, headers, cache: 'no-store' });
   const text = await res.text();
   let body: Envelope<T>;
   try {
     body = JSON.parse(text) as Envelope<T>;
   } catch {
-    throw new Error('Could not reach the admin API. Is Django running on port 8000?');
+    throw new Error(`Could not reach the backend at ${backendOrigin()}. Check BACKEND_URL in admin/.env.`);
   }
   if (!res.ok || !body.success) {
     throw new Error(body.message || body.errors?.[0]?.message || 'Request failed');
