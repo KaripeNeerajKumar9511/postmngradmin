@@ -38,7 +38,12 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
   const token = getToken();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (headers.get('Authorization') === '') {
+    headers.delete('Authorization');
+  }
   const res = await fetch(apiUrl(path), { ...init, headers, cache: 'no-store' });
   const text = await res.text();
   let body: Envelope<T>;
@@ -60,6 +65,7 @@ export function login(email: string, password: string) {
   return api<AuthPayload>('/api/v1/auth/login/', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+    headers: { Authorization: '' },
   });
 }
 
