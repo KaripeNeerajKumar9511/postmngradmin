@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AdminShell } from '@/components/AdminShell';
 import {
   deleteContact,
   deleteEarlyAccess,
@@ -107,23 +108,12 @@ export default function AdminHome() {
   };
 
   return (
-    <div className="wrap">
+    <AdminShell>
       <div className="top">
         <div>
-          <div className="brand">postmngr admin</div>
           <h1>Requests</h1>
           <p className="muted">Early access, contact, and newsletter lists.</p>
         </div>
-        <button
-          className="link"
-          type="button"
-          onClick={() => {
-            setToken(null);
-            router.replace('/login');
-          }}
-        >
-          Log out
-        </button>
       </div>
       {error ? <p className="error">{error}</p> : null}
       <div className="seg">
@@ -281,6 +271,6 @@ export default function AdminHome() {
           </div>
         </>
       ) : null}
-    </div>
+    </AdminShell>
   );
 }
