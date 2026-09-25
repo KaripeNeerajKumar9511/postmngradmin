@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AdminShell } from '@/components/AdminShell';
 import { BlogEditor } from '@/components/BlogEditor';
-import { getBlog, getToken, setToken, updateBlog, type AdminBlog } from '@/lib/api';
+import { getBlog, hasSession, isSessionIdle, SessionExpiredError, updateBlog, type AdminBlog } from '@/lib/api';
 
 export default function EditBlogPage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function EditBlogPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (!getToken()) {
+    if (!hasSession() || isSessionIdle()) {
       router.replace('/login');
       return;
     }
@@ -25,14 +25,11 @@ export default function EditBlogPage() {
         if (!cancelled) setPost(data);
       } catch (err) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : 'Could not load that blog.';
-        const expired = /expired token|not authenticated|credentials were not provided/i.test(message);
-        if (expired) {
-          setToken(null);
+        if (err instanceof SessionExpiredError || !hasSession()) {
           router.replace('/login');
           return;
         }
-        setError(message);
+        setError(err instanceof Error ? err.message : 'Could not load that blog.');
       }
     })();
     return () => {

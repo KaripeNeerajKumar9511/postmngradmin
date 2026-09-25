@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AdminShell } from '@/components/AdminShell';
-import { deleteBlog, getToken, listBlogs, mediaSrc, setToken, type AdminBlog } from '@/lib/api';
+import { deleteBlog, hasSession, isSessionIdle, listBlogs, mediaSrc, SessionExpiredError, type AdminBlog } from '@/lib/api';
 
 export default function BlogsPage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function BlogsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getToken()) {
+    if (!hasSession() || isSessionIdle()) {
       router.replace('/login');
       return;
     }
@@ -24,11 +24,12 @@ export default function BlogsPage() {
         const data = await listBlogs();
         if (!cancelled) setPosts(data);
       } catch (err) {
-        if (!cancelled) {
-          setToken(null);
+        if (cancelled) return;
+        if (err instanceof SessionExpiredError || !hasSession()) {
           router.replace('/login');
-          setError(err instanceof Error ? err.message : 'Could not load blogs.');
+          return;
         }
+        setError(err instanceof Error ? err.message : 'Could not load blogs.');
       } finally {
         if (!cancelled) setLoading(false);
       }

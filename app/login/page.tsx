@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, setToken } from '@/lib/api';
+import { clearSession, login, saveSession } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,11 +18,11 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
       if (!result.user.is_leads_admin) {
-        setToken(null);
+        clearSession();
         setError('This account is not in ADMIN_EMAILS.');
         return;
       }
-      setToken(result.tokens.access);
+      saveSession(result.tokens);
       router.replace('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not sign in.');

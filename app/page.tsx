@@ -7,11 +7,12 @@ import {
   deleteContact,
   deleteEarlyAccess,
   deleteNewsletter,
-  getToken,
+  hasSession,
+  isSessionIdle,
   listContact,
   listEarlyAccess,
   listNewsletters,
-  setToken,
+  SessionExpiredError,
   type Contact,
   type EarlyAccess,
   type Newsletter,
@@ -49,7 +50,7 @@ export default function AdminHome() {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getToken()) {
+    if (!hasSession() || isSessionIdle()) {
       router.replace('/login');
       return;
     }
@@ -68,11 +69,12 @@ export default function AdminHome() {
         setSubscribed(on);
         setUnsubscribed(off);
       } catch (err) {
-        if (!cancelled) {
-          setToken(null);
-          setError(err instanceof Error ? err.message : 'Could not load admin data.');
+        if (cancelled) return;
+        if (err instanceof SessionExpiredError || !hasSession()) {
           router.replace('/login');
+          return;
         }
+        setError(err instanceof Error ? err.message : 'Could not load admin data.');
       } finally {
         if (!cancelled) setLoading(false);
       }

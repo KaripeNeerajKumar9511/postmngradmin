@@ -6,6 +6,20 @@ export type Envelope<T> = {
 };
 
 const TOKEN_KEY = 'pm-admin-token';
+const REFRESH_KEY = 'pm-admin-refresh';
+const ACTIVITY_KEY = 'pm-admin-activity';
+
+/** Sign out only after the portal has had no use for this long. */
+export const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const ACTIVITY_WRITE_MS = 15_000;
+const ACCESS_REFRESH_SKEW_MS = 60_000;
+
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('Signed out after 30 minutes of inactivity.');
+    this.name = 'SessionExpiredError';
+  }
+}
 
 export function getToken() {
   if (typeof window === 'undefined') return null;
@@ -16,6 +30,131 @@ export function setToken(token: string | null) {
   if (typeof window === 'undefined') return;
   if (token) window.localStorage.setItem(TOKEN_KEY, token);
   else window.localStorage.removeItem(TOKEN_KEY);
+}
+
+function getRefresh() {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(REFRESH_KEY);
+}
+
+function setRefresh(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) window.localStorage.setItem(REFRESH_KEY, token);
+  else window.localStorage.removeItem(REFRESH_KEY);
+}
+
+export function hasSession() {
+  return Boolean(getToken() || getRefresh());
+}
+
+export function clearSession() {
+  setToken(null);
+  setRefresh(null);
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(ACTIVITY_KEY);
+}
+
+export function saveSession(tokens: { access: string; refresh?: string }) {
+  setToken(tokens.access);
+  if (tokens.refresh) setRefresh(tokens.refresh);
+  touchActivity();
+}
+
+let lastActivityWrite = 0;
+
+export function touchActivity() {
+  if (typeof window === 'undefined') return;
+  const now = Date.now();
+  if (now - lastActivityWrite < ACTIVITY_WRITE_MS) return;
+  lastActivityWrite = now;
+  window.localStorage.setItem(ACTIVITY_KEY, String(now));
+}
+
+export function isSessionIdle() {
+  if (typeof window === 'undefined') return false;
+  const raw = window.localStorage.getItem(ACTIVITY_KEY);
+  if (!raw) return false;
+  const at = Number(raw);
+  if (!Number.isFinite(at)) return false;
+  return Date.now() - at >= IDLE_TIMEOUT_MS;
+}
+
+function jwtExpMs(token: string): number | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json) as { exp?: number };
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function accessIsFresh(token: string) {
+  const exp = jwtExpMs(token);
+  if (exp == null) return true;
+  return exp - Date.now() > ACCESS_REFRESH_SKEW_MS;
+}
+
+let refreshInflight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInflight) return refreshInflight;
+  refreshInflight = (async () => {
+    const refresh = getRefresh();
+    if (!refresh) return null;
+    const res = await fetch(apiUrl('/api/v1/auth/refresh/'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+      cache: 'no-store',
+    });
+    const text = await res.text();
+    let body: Envelope<AuthPayload> | null = null;
+    try {
+      body = JSON.parse(text) as Envelope<AuthPayload>;
+    } catch {
+      body = null;
+    }
+    if (!res.ok || !body?.success || !body.data?.tokens?.access) {
+      if (res.status === 401 || res.status === 403) clearSession();
+      return null;
+    }
+    setToken(body.data.tokens.access);
+    if (body.data.tokens.refresh) setRefresh(body.data.tokens.refresh);
+    return body.data.tokens.access;
+  })().finally(() => {
+    refreshInflight = null;
+  });
+  return refreshInflight;
+}
+
+async function ensureAccessToken(): Promise<string | null> {
+  if (isSessionIdle()) {
+    clearSession();
+    throw new SessionExpiredError();
+  }
+  const current = getToken();
+  if (current && accessIsFresh(current)) return current;
+  if (!getRefresh()) return current;
+  return (await refreshAccessToken()) ?? getToken();
+}
+
+export async function logoutSession() {
+  const refresh = getRefresh();
+  clearSession();
+  if (!refresh || typeof window === 'undefined') return;
+  try {
+    await fetch(apiUrl('/api/v1/auth/logout/'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+      cache: 'no-store',
+    });
+  } catch {
+    // Local session is already cleared.
+  }
 }
 
 function backendOrigin(): string {
@@ -63,22 +202,39 @@ async function parseEnvelope<T>(res: Response): Promise<T> {
   return body.data;
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+async function authorizedFetch(path: string, init?: RequestInit, allowRefresh = true): Promise<Response> {
   const headers = new Headers(init?.headers);
-  headers.set('Content-Type', 'application/json');
-  const token = getToken();
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
+  if (!(init?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
   }
-  if (headers.get('Authorization') === '') {
-    headers.delete('Authorization');
+  const skipAuth = headers.get('Authorization') === '';
+  if (skipAuth) headers.delete('Authorization');
+  else if (!headers.has('Authorization')) {
+    const token = allowRefresh ? await ensureAccessToken() : getToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
   }
   const res = await fetch(apiUrl(path), { ...init, headers, cache: 'no-store' });
+  if (res.status !== 401 || skipAuth) return res;
+  if (!allowRefresh || isSessionIdle() || !getRefresh()) {
+    clearSession();
+    return res;
+  }
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) {
+    clearSession();
+    return res;
+  }
+  headers.set('Authorization', `Bearer ${refreshed}`);
+  return fetch(apiUrl(path), { ...init, headers, cache: 'no-store' });
+}
+
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await authorizedFetch(path, init);
   return parseEnvelope<T>(res);
 }
 
 export type AdminUser = { email: string; is_leads_admin?: boolean };
-export type AuthPayload = { user: AdminUser; tokens: { access: string } };
+export type AuthPayload = { user: AdminUser; tokens: { access: string; refresh?: string } };
 
 export function login(email: string, password: string) {
   return api<AuthPayload>('/api/v1/auth/login/', {
@@ -202,16 +358,11 @@ export function deleteBlog(id: string) {
 }
 
 export async function uploadBlogImage(file: File) {
-  const headers = new Headers();
-  const token = getToken();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
   const body = new FormData();
   body.append('image', file);
-  const res = await fetch(apiUrl('/api/v1/admin-portal/blogs/upload/'), {
+  const res = await authorizedFetch('/api/v1/admin-portal/blogs/upload/', {
     method: 'POST',
-    headers,
     body,
-    cache: 'no-store',
   });
   return parseEnvelope<{ url: string }>(res);
 }

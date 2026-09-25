@@ -3,14 +3,31 @@
 import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { getToken, setToken } from '@/lib/api';
+import { clearSession, hasSession, isSessionIdle, logoutSession, touchActivity } from '@/lib/api';
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!getToken()) router.replace('/login');
+    if (!hasSession() || isSessionIdle()) {
+      clearSession();
+      router.replace('/login');
+      return;
+    }
+    touchActivity();
+    const mark = () => touchActivity();
+    const events = ['pointerdown', 'keydown', 'scroll', 'mousemove'] as const;
+    events.forEach((name) => window.addEventListener(name, mark, { passive: true }));
+    const timer = window.setInterval(() => {
+      if (!isSessionIdle()) return;
+      clearSession();
+      router.replace('/login');
+    }, 15_000);
+    return () => {
+      events.forEach((name) => window.removeEventListener(name, mark));
+      window.clearInterval(timer);
+    };
   }, [router]);
 
   const blogsOn = pathname.startsWith('/blogs');
@@ -33,7 +50,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           className="link sidebar-out"
           type="button"
           onClick={() => {
-            setToken(null);
+            void logoutSession();
             router.replace('/login');
           }}
         >
