@@ -26,6 +26,55 @@ function emptyParagraph(): BlogBlock {
   return { type: 'p', text: '' };
 }
 
+type FaqItem = { q: string; a: string };
+type FaqBlock = { type: 'faq'; heading: string; id: string; items: FaqItem[] };
+type EditorBlock = BlogBlock | FaqBlock;
+
+function isQaRun(blocks: BlogBlock[], index: number) {
+  if (blocks[index]?.type !== 'h2') return false;
+  if (blocks[index + 1]?.type !== 'h3' || blocks[index + 2]?.type !== 'p') return false;
+  let i = index + 1;
+  while (i < blocks.length) {
+    const q = blocks[i];
+    const a = blocks[i + 1];
+    if (q?.type === 'h3' && a?.type === 'p') {
+      i += 2;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+function toEditorBlocks(blocks: BlogBlock[]): EditorBlock[] {
+  const out: EditorBlock[] = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i];
+    const faqHeading = block.type === 'h2' && (/faq|frequently asked questions/i.test(block.text) || isQaRun(blocks, i));
+    if (faqHeading && blocks[i + 1]?.type === 'h3' && blocks[i + 2]?.type === 'p') {
+      const items: FaqItem[] = [];
+      let j = i + 1;
+      while (j < blocks.length && blocks[j]?.type === 'h3' && blocks[j + 1]?.type === 'p') {
+        const q = blocks[j];
+        const a = blocks[j + 1];
+        if (q.type === 'h3' && a.type === 'p') items.push({ q: q.text, a: a.text });
+        j += 2;
+      }
+      out.push({ type: 'faq', heading: block.text, id: block.id, items: items.length ? items : [{ q: '', a: '' }] });
+      i = j;
+      continue;
+    }
+    out.push(block);
+    i += 1;
+  }
+  return out;
+}
+
+function emptyFaq(): FaqBlock {
+  return { type: 'faq', heading: '', id: '', items: [{ q: '', a: '' }] };
+}
+
 type Props = {
   initial?: Partial<BlogPayload> & { number?: number };
   submitLabel: string;
@@ -44,8 +93,8 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
   const [author, setAuthor] = useState(initial?.author ?? 'PostMngr Team');
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? true);
   const [number, setNumber] = useState(initial?.number ? String(initial.number) : '');
-  const [blocks, setBlocks] = useState<BlogBlock[]>(
-    initial?.blocks?.length ? initial.blocks : [emptyParagraph()],
+  const [blocks, setBlocks] = useState<EditorBlock[]>(
+    initial?.blocks?.length ? toEditorBlocks(initial.blocks) : [emptyParagraph()],
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,7 +102,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
 
   const preview = useMemo(() => mediaSrc(image), [image]);
 
-  const setBlock = (index: number, next: BlogBlock) => {
+  const setBlock = (index: number, next: EditorBlock) => {
     setBlocks((items) => items.map((item, i) => (i === index ? next : item)));
   };
 
@@ -73,7 +122,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
     setBlocks((items) => (items.length === 1 ? items : items.filter((_, i) => i !== index)));
   };
 
-  const add = (block: BlogBlock, after?: number) => {
+  const add = (block: EditorBlock, after?: number) => {
     setBlocks((items) => {
       const copy = [...items];
       const at = after == null ? copy.length : after + 1;
@@ -104,6 +153,15 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    const incompleteFaq = blocks.some(
+      (block) =>
+        block.type === 'faq' &&
+        (!block.heading.trim() || block.items.some((item) => !item.q.trim() || !item.a.trim())),
+    );
+    if (incompleteFaq) {
+      setError('Fill in the FAQ heading and each question and answer.');
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -117,11 +175,23 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
         publishedAt,
         author: author.trim() || 'PostMngr Team',
         isPublished,
-        blocks: blocks.map((block) => {
-          if (block.type === 'h2' || block.type === 'h3') {
-            return { ...block, id: block.id || headingId(block.text) };
+        blocks: blocks.flatMap((block): BlogBlock[] => {
+          if (block.type === 'faq') {
+            const heading = block.heading.trim();
+            const items = block.items.filter((item) => item.q.trim() && item.a.trim());
+            if (!heading || !items.length) return [];
+            return [
+              { type: 'h2', text: heading, id: block.id || headingId(heading) },
+              ...items.flatMap((item) => [
+                { type: 'h3' as const, text: item.q.trim(), id: headingId(item.q) },
+                { type: 'p' as const, text: item.a.trim() },
+              ]),
+            ];
           }
-          return block;
+          if (block.type === 'h2' || block.type === 'h3') {
+            return [{ ...block, id: block.id || headingId(block.text) }];
+          }
+          return [block];
         }),
       };
       if (number.trim()) payload.number = Number(number);
@@ -234,7 +304,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
           <div className="card-head">
             <h2>Content blocks</h2>
             <p className="muted" style={{ margin: 0 }}>
-              Same structure as live blogs: lead paragraph, H2/H3, lists, tables, and FAQ as H2 + H3 + paragraph.
+              Same structure as live blogs. FAQ opens when a reader clicks a question.
             </p>
           </div>
           <div className="block-add">
@@ -256,19 +326,87 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
             >
               + Table
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                add({ type: 'h2', text: 'Frequently Asked Questions', id: 'frequently-asked-questions' });
-                add({ type: 'h3', text: '', id: '' });
-                add({ type: 'p', text: '' });
-              }}
-            >
-              + FAQ section
+            <button type="button" onClick={() => add(emptyFaq())}>
+              + FAQ
             </button>
           </div>
         </div>
         {blocks.map((block, index) => {
+          if (block.type === 'faq') {
+            return (
+              <div className="block" key={`faq-${index}`}>
+                <details className="faq-editor" open>
+                  <summary>FAQ</summary>
+                  <div className="field">
+                    <label htmlFor={`faq-heading-${index}`}>Heading</label>
+                    <input
+                      id={`faq-heading-${index}`}
+                      value={block.heading}
+                      placeholder="Heading"
+                      onChange={(e) => setBlock(index, { ...block, heading: e.target.value, id: headingId(e.target.value) })}
+                    />
+                  </div>
+                  {block.items.map((item, itemIndex) => (
+                    <div className="faq-q" key={itemIndex}>
+                      <div className="block-bar">
+                        <strong>Q{itemIndex + 1}</strong>
+                        {block.items.length > 1 ? (
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() =>
+                              setBlock(index, { ...block, items: block.items.filter((_, i) => i !== itemIndex) })
+                            }
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`faq-q-${index}-${itemIndex}`}>Question</label>
+                        <input
+                          id={`faq-q-${index}-${itemIndex}`}
+                          value={item.q}
+                          placeholder="Question"
+                          onChange={(e) => {
+                            const items = block.items.map((row, i) => (i === itemIndex ? { ...row, q: e.target.value } : row));
+                            setBlock(index, { ...block, items });
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`faq-a-${index}-${itemIndex}`}>Answer</label>
+                        <textarea
+                          id={`faq-a-${index}-${itemIndex}`}
+                          rows={4}
+                          value={item.a}
+                          placeholder="Answer"
+                          onChange={(e) => {
+                            const items = block.items.map((row, i) => (i === itemIndex ? { ...row, a: e.target.value } : row));
+                            setBlock(index, { ...block, items });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setBlock(index, { ...block, items: [...block.items, { q: '', a: '' }] })}
+                  >
+                    Add question
+                  </button>
+                  <div className="block-bar" style={{ marginTop: '0.75rem' }}>
+                    <span />
+                    <span className="block-bar-actions">
+                      <button type="button" onClick={() => move(index, -1)}>Up</button>
+                      <button type="button" onClick={() => move(index, 1)}>Down</button>
+                      <button type="button" className="danger" onClick={() => remove(index)}>Remove</button>
+                    </span>
+                  </div>
+                </details>
+              </div>
+            );
+          }
           const isList = block.type === 'ul' || block.type === 'ol';
           const sources =
             block.type === 'p' || block.type === 'h2' || block.type === 'h3'

@@ -106,7 +106,7 @@ th { color: var(--ink-3); font-weight: 600; }
 .block-bar { display: flex; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.7rem; align-items: flex-start; }
 .block-bar-actions { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }
 .block-bar span, .row-actions { display: flex; gap: 0.75rem; align-items: center; }
-.block-bar button:not(.btn-link):not(.btn-format):not(.danger), .block-add button, .list-editor > button, .table-actions button {
+.block-bar button:not(.btn-link):not(.btn-format):not(.danger), .block-add button, .list-editor > button, .table-actions button, .faq-editor > button {
   font: inherit; font-size: 0.82rem; background: #fff; border: 1px solid #d3cfc6;
   border-radius: 999px; padding: 0.25rem 0.7rem; cursor: pointer;
 }
@@ -128,6 +128,9 @@ th { color: var(--ink-3); font-weight: 600; }
   line-height: 1.55;
   white-space: pre-wrap;
 }
+.faq-editor { margin: 0; }
+.faq-editor summary { cursor: pointer; font-weight: 650; margin-bottom: 0.75rem; }
+.faq-q { border-top: 1px solid var(--rule); padding-top: 0.75rem; margin-top: 0.35rem; }
 .list-row { display: flex; gap: 0.5rem; margin-bottom: 0.45rem; align-items: flex-start; }
 .blog-row { display: flex; gap: 0.75rem; align-items: flex-start; }
 .blog-row img { width: 64px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--rule); }
