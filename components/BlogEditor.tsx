@@ -99,6 +99,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const preview = useMemo(() => mediaSrc(image), [image]);
 
@@ -140,12 +141,16 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
+    setImageError(null);
     setUploading(true);
     try {
       const result = await uploadBlogImage(file);
+      if (!result?.url) throw new Error('Upload did not return an image path.');
       setImage(result.url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not upload that image.');
+      const message = err instanceof Error ? err.message : 'Could not upload that image.';
+      setImageError(message);
+      setError(message);
     } finally {
       setUploading(false);
     }
@@ -278,7 +283,13 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
         <h2>Feature image</h2>
         <div className="field">
           <label htmlFor="image">Image path or upload</label>
-          <input id="image" required value={image} onChange={(e) => setImage(e.target.value)} placeholder="/Blog_imgs/Blog1.png" />
+          <input
+            id="image"
+            required
+            value={image}
+            onChange={(e) => setImage(e.target.value)}
+            placeholder="Filled in after the upload finishes"
+          />
         </div>
         <div className="field">
           <label htmlFor="file">Upload image</label>
@@ -290,6 +301,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
             onChange={(e) => void onFile(e.target.files?.[0])}
           />
           {uploading ? <p className="muted">Uploading…</p> : null}
+          {imageError ? <p className="error">{imageError}</p> : null}
         </div>
         {preview ? (
           <div className="img-preview">

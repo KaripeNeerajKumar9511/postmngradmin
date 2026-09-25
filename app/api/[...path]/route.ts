@@ -20,15 +20,29 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
 
   try {
     const headers = new Headers();
+    const contentType = request.headers.get('content-type') || '';
+    const isMultipart = contentType.toLowerCase().includes('multipart/form-data');
     request.headers.forEach((value, key) => {
       const lower = key.toLowerCase();
       if (lower === 'host' || lower === 'connection' || lower === 'content-length') return;
+      if (isMultipart && lower === 'content-type') return;
       headers.set(key, value);
     });
+    let body: BodyInit | undefined;
+    if (hasBody && isMultipart) {
+      const incoming = await request.formData();
+      const outgoing = new FormData();
+      incoming.forEach((value, key) => {
+        outgoing.append(key, value);
+      });
+      body = outgoing;
+    } else if (hasBody) {
+      body = await request.arrayBuffer();
+    }
     const upstream = await fetch(url, {
       method,
       headers,
-      body: hasBody ? await request.arrayBuffer() : undefined,
+      body,
       redirect: 'manual',
       cache: 'no-store',
     });
