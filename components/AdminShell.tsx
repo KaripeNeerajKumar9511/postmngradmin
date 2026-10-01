@@ -31,6 +31,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, [router]);
 
   const blogsOn = pathname.startsWith('/blogs');
+  const siteOn = pathname.startsWith('/site');
 
   return (
     <div className="shell">
@@ -39,11 +40,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
           postmngr admin
         </Link>
         <nav>
-          <Link href="/" className={!blogsOn ? 'is-on' : undefined}>
+          <Link href="/" className={!blogsOn && !siteOn ? 'is-on' : undefined}>
             Requests
           </Link>
           <Link href="/blogs" className={blogsOn ? 'is-on' : undefined}>
             Blogs
+          </Link>
+          <Link href="/site" className={pathname === '/site' ? 'is-on' : undefined}>
+            Site pages
+          </Link>
+          <Link href="/site/chrome" className={pathname.startsWith('/site/chrome') ? 'is-on' : undefined}>
+            Header & footer
+          </Link>
+          <Link href="/site/pricing" className={pathname.startsWith('/site/pricing') ? 'is-on' : undefined}>
+            Pricing
           </Link>
         </nav>
         <button
