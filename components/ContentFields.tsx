@@ -38,6 +38,16 @@ const LABELS: Record<string, string> = {
   copyright: 'Copyright line',
 };
 
+const SECTION_KINDS = ['copy', 'cards', 'table', 'rows', 'choose', 'faq', 'cta'];
+const VISUAL_KINDS = ['metrics', 'shifts', 'rows', 'chat', 'compare', 'bars'];
+
+function kindChoices(record: Record<string, unknown>): string[] {
+  const kind = typeof record.kind === 'string' ? record.kind : '';
+  if (kind === 'rows') return 'items' in record && !('title' in record) ? VISUAL_KINDS : SECTION_KINDS;
+  if (VISUAL_KINDS.includes(kind)) return VISUAL_KINDS;
+  return SECTION_KINDS;
+}
+
 function labelFor(key: string) {
   if (LABELS[key]) return LABELS[key];
   return key
@@ -122,7 +132,7 @@ function Node({ value, onChange, name }: { value: unknown; onChange: (next: unkn
             <label>{labelFor(key)}</label>
             {key === 'kind' && typeof item === 'string' ? (
               <select value={item} onChange={(event) => onChange({ ...(value as object), kind: event.target.value })}>
-                {['copy', 'cards', 'table', 'rows', 'choose', 'faq', 'cta'].map((kind) => (
+                {kindChoices(value as Record<string, unknown>).map((kind) => (
                   <option key={kind} value={kind}>
                     {kind}
                   </option>

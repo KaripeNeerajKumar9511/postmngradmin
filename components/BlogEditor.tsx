@@ -1,8 +1,9 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
-import { ContentFormatBar, ContentLinkChips, ContentLinkScope, LinkableField } from '@/components/LinkedTextField';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ContentFormatBar, ContentLinkChips, ContentLinkScope, LinkableField, type BlogLinkOption } from '@/components/LinkedTextField';
 import {
+  listBlogs,
   mediaSrc,
   uploadBlogImage,
   type BlogBlock,
@@ -100,6 +101,26 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [blogLinks, setBlogLinks] = useState<BlogLinkOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listBlogs()
+      .then((posts) => {
+        if (cancelled) return;
+        const links = posts
+          .filter((post) => post.isPublished && post.slug)
+          .sort((a, b) => b.number - a.number)
+          .map((post) => ({ title: post.title, slug: post.slug }));
+        setBlogLinks(links);
+      })
+      .catch(() => {
+        if (!cancelled) setBlogLinks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const preview = useMemo(() => mediaSrc(image), [image]);
 
@@ -468,7 +489,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
                         : 'Table'}
               </strong>
               <span className="block-bar-actions">
-                {(block.type === 'p' || isList || block.type === 'table') ? <ContentFormatBar /> : null}
+                {(block.type === 'p' || isList || block.type === 'table') ? <ContentFormatBar blogs={blogLinks} /> : null}
                 <button type="button" onClick={() => move(index, -1)}>
                   Up
                 </button>
@@ -498,7 +519,7 @@ export function BlogEditor({ initial, submitLabel, onSubmit }: Props) {
                 </button>
               </div>
             ) : null}
-            <ContentLinkChips sources={sources} />
+            <ContentLinkChips sources={sources} blogs={blogLinks} />
             {block.type === 'p' ? (
               <LinkableField
                 multiline

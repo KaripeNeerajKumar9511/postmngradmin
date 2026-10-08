@@ -225,6 +225,30 @@ th { color: var(--ink-3); font-weight: 600; }
   color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em;
 }
 .link-group:first-child { margin-top: 0.15rem; }
+.link-nest { font-weight: 600; }
+.link-nested {
+  display: grid; gap: 0.35rem;
+  margin: 0.15rem 0.15rem 0.25rem;
+  padding: 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: #faf8f4;
+}
+.link-nested input {
+  width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  font-size: 0.84rem;
+  background: #fff;
+}
+.link-nested-list {
+  display: grid; gap: 0.08rem;
+  max-height: 220px;
+  overflow: auto;
+}
+.link-empty { margin: 0.25rem 0.35rem; font-size: 0.82rem; color: var(--ink-3); }
 .link-chips { list-style: none; margin: 0 0 0.7rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .link-chips li {
   display: inline-flex; gap: 0.35rem; align-items: center;

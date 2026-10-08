@@ -50,11 +50,16 @@ export function ContentLinkScope({ children }: { children: ReactNode }) {
   );
 }
 
-export function ContentFormatBar() {
+export type BlogLinkOption = { title: string; slug: string };
+
+export function ContentFormatBar({ blogs = [] }: { blogs?: BlogLinkOption[] }) {
   const scope = useContext(LinkScopeContext);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [blogsOpen, setBlogsOpen] = useState(false);
+  const [blogQuery, setBlogQuery] = useState('');
   const [hint, setHint] = useState<string | null>(null);
+  const blogMatches = blogs.filter((blog) => blog.title.toLowerCase().includes(blogQuery.trim().toLowerCase()));
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +87,8 @@ export function ContentFormatBar() {
     field.onChange(next);
     setHint(null);
     setOpen(false);
+    setBlogsOpen(false);
+    setBlogQuery('');
   };
 
   return (
@@ -104,7 +111,13 @@ export function ContentFormatBar() {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             setHint(null);
-            setOpen((current) => !current);
+            setOpen((current) => {
+              if (current) {
+                setBlogsOpen(false);
+                setBlogQuery('');
+              }
+              return !current;
+            });
           }}
         >
           Link
@@ -135,6 +148,44 @@ export function ContentFormatBar() {
                 {item.label}
               </button>
             ))}
+            <p className="link-group">Blog pages</p>
+            <button
+              type="button"
+              className="link-nest"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setBlogsOpen((current) => !current)}
+              aria-expanded={blogsOpen}
+            >
+              {blogsOpen ? 'Hide blogs' : 'Choose a blog'}
+            </button>
+            {blogsOpen ? (
+              <div className="link-nested">
+                <input
+                  type="search"
+                  value={blogQuery}
+                  placeholder="Search blogs"
+                  aria-label="Search blogs"
+                  onChange={(event) => setBlogQuery(event.target.value)}
+                />
+                <div className="link-nested-list" role="menu">
+                  {blogMatches.length ? (
+                    blogMatches.map((blog) => (
+                      <button
+                        key={blog.slug}
+                        type="button"
+                        role="menuitem"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => applyMark('link', `/blogs/${blog.slug}`)}
+                      >
+                        {blog.title}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="link-empty">No matching blogs.</p>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -143,7 +194,7 @@ export function ContentFormatBar() {
   );
 }
 
-export function ContentLinkChips({ sources }: { sources: LinkSource[] }) {
+export function ContentLinkChips({ sources, blogs = [] }: { sources: LinkSource[]; blogs?: BlogLinkOption[] }) {
   const chips = sources.flatMap((source, sourceIndex) =>
     listTextLinks(source.text).map((link) => ({ source, sourceIndex, link })),
   );
@@ -153,7 +204,7 @@ export function ContentLinkChips({ sources }: { sources: LinkSource[] }) {
       {chips.map((item) => (
         <li key={`${item.sourceIndex}-${item.link.start}-${item.link.href}`}>
           <strong>{item.link.label}</strong>
-          <span>→ {pageLabel(item.link.href)}</span>
+          <span>→ {blogs.find((blog) => item.link.href === `/blogs/${blog.slug}`)?.title ?? pageLabel(item.link.href)}</span>
           <button type="button" className="danger" onClick={() => item.source.onChange(removeTextLink(item.source.text, item.link))}>
             Remove
           </button>
