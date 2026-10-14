@@ -331,6 +331,29 @@ export function deleteNewsletter(id: string) {
   return api<null>(`/api/v1/admin-portal/newsletters/${id}/`, { method: 'DELETE' });
 }
 
+export type PortalUser = {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  default_timezone: string;
+  is_email_verified: boolean;
+  is_active: boolean;
+  is_leads_admin: boolean;
+  date_joined: string;
+  organization: string;
+  onboarding_complete: boolean;
+};
+
+export function listUsers() {
+  return api<PortalUser[]>(`/api/v1/admin-portal/users/?t=${Date.now()}`);
+}
+
+export function deleteUser(id: string) {
+  return api<null>(`/api/v1/admin-portal/users/${id}/`, { method: 'DELETE' });
+}
+
 export function listBlogs() {
   return api<AdminBlog[]>(`/api/v1/admin-portal/blogs/?t=${Date.now()}`);
 }

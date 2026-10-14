@@ -32,6 +32,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const blogsOn = pathname.startsWith('/blogs');
   const siteOn = pathname.startsWith('/site');
+  const usersOn = pathname.startsWith('/users');
 
   return (
     <div className="shell">
@@ -40,8 +41,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
           postmngr admin
         </Link>
         <nav>
-          <Link href="/" className={!blogsOn && !siteOn ? 'is-on' : undefined}>
+          <Link href="/" className={!blogsOn && !siteOn && !usersOn ? 'is-on' : undefined}>
             Requests
+          </Link>
+          <Link href="/users" className={usersOn ? 'is-on' : undefined}>
+            Users
           </Link>
           <Link href="/blogs" className={blogsOn ? 'is-on' : undefined}>
             Blogs
